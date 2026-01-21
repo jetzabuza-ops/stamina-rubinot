@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#121212">
+  <title>Calculadora de Stamina Rubinot</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #121212;
+      color: #f0f0f0;
+      padding: 15px;
+      max-width: 480px;
+      margin: auto;
+      text-align: center;
+    }
+    h1 { font-size: 24px; margin-top: 10px; }
+    img.logo {
+      max-width: 150px;
+      height: auto;
+      margin-bottom: 10px;
+    }
+    label { display: block; margin-top: 12px; font-size: 16px; text-align: left; }
+    input, select {
+      width: 100%;
+      padding: 10px;
+      margin-top: 5px;
+      font-size: 16px;
+      border-radius: 6px;
+      border: none;
+    }
+    button {
+      margin-top: 20px;
+      width: 100%;
+      padding: 14px;
+      font-size: 18px;
+      border-radius: 8px;
+      border: none;
+      background: #ff9800;
+      color: #000;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    .resultado {
+      margin-top: 25px;
+      padding: 15px;
+      background: #1e1e1e;
+      border-radius: 8px;
+      text-align: center;
+      font-size: 18px;
+      word-wrap: break-word;
+    }
+    .barra {
+      height: 25px;
+      width: 100%;
+      background: #333;
+      border-radius: 12px;
+      margin-top: 10px;
+      overflow: hidden;
+    }
+    .progressoOrange {
+      height: 100%;
+      background: #ff9800;
+      width: 0%;
+      float: left;
+      transition: width 0.5s;
+    }
+    .progressoGreen {
+      height: 100%;
+      background: #4caf50;
+      width: 0%;
+      float: left;
+      transition: width 0.5s;
+    }
+  </style>
+  <link rel="manifest" href="manifest.json">
+</head>
+<body>
+
+<img src="logo.png" alt="Logo Rubinot" class="logo">
+<h1>Calculadora de Stamina Rubinot</h1>
+
+<label>Stamina atual (01:00 até 42:00)</label>
+<input type="text" id="stamina" placeholder="Ex: 37:30">
+
+<label>Stamina alvo (máx 42:00)</label>
+<input type="text" id="staminaAlvo" value="42:00" placeholder="Ex: 40:30">
+
+<label>Horário inicial</label>
+<input type="time" id="horaInicial">
+<button type="button" onclick="usarHoraAtual()" style="margin-top:8px;width:100%">Usar hora atual</button>
+
+<label>Modo de recuperação</label>
+<select id="modo">
+  <option value="offline">Offline / Dormindo</option>
+  <option value="pz">Protection Zone / Dummy</option>
+  <option value="trainer">Atacando Trainer</option>
+</select>
+
+<button onclick="calcular()">Calcular horário da stamina alvo</button>
+
+<div class="resultado" id="resultado"></div>
+<div class="barra">
+  <div class="progressoOrange" id="barraOrange"></div>
+  <div class="progressoGreen" id="barraGreen"></div>
+</div>
+
+<script>
+function usarHoraAtual() {
+  const agora = new Date();
+  const h = agora.getHours().toString().padStart(2, '0');
+  const m = agora.getMinutes().toString().padStart(2, '0');
+  document.getElementById('horaInicial').value = `${h}:${m}`;
+}
+window.addEventListener('load', usarHoraAtual);
+</script>
+
+<script>
+function calcular() {
+  const staminaInput = document.getElementById('stamina').value.trim();
+  const staminaAlvoInput = document.getElementById('staminaAlvo').value.trim();
+  const horaInput = document.getElementById('horaInicial').value;
+  const modo = document.getElementById('modo').value;
+
+  if (!staminaInput || !staminaAlvoInput || !horaInput) {
+    alert('Preencha stamina atual, stamina alvo e horário inicial');
+    return;
+  }
+
+  const regex = /^([0-3]?\d|4[0-2]):[0-5]\d$/;
+  if (!regex.test(staminaInput) || !regex.test(staminaAlvoInput)) {
+    alert('Use formato HH:MM entre 01:00 e 42:00');
+    return;
+  }
+
+  let [h, m] = staminaInput.split(':').map(Number);
+  let staminaMin = h * 60 + m;
+
+  let [ha, ma] = staminaAlvoInput.split(':').map(Number);
+  let staminaAlvoMin = ha * 60 + ma;
+
+  if (staminaAlvoMin <= staminaMin || staminaAlvoMin > 2520) {
+    alert('A stamina alvo deve ser maior que a atual e no máximo 42:00');
+    return;
+  }
+
+  let [hi, mi] = horaInput.split(':').map(Number);
+  let tempoReal = hi * 60 + mi;
+  let tempoTotal = 0;
+
+  let tempoOrange = 0;
+  let tempoGreen = 0;
+
+  // ORANGE (< 39:00)
+  if (staminaMin < 2340) {
+    const taxaOrange = (modo === 'trainer') ? 6 : 3;
+    const limite = Math.min(2340, staminaAlvoMin);
+    tempoOrange = (limite - staminaMin) * taxaOrange;
+    tempoTotal += tempoOrange;
+    staminaMin = limite;
+  }
+
+  // GREEN (≥ 39:00)
+  if (staminaMin < staminaAlvoMin) {
+    const taxaGreen = (modo === 'pz') ? 5 : 6;
+    tempoGreen = (staminaAlvoMin - staminaMin) * taxaGreen;
+    tempoTotal += tempoGreen;
+  }
+
+  tempoReal = (tempoReal + tempoTotal) % 1440;
+
+  const horaFinal = String(Math.floor(tempoReal / 60)).padStart(2, '0');
+  const minFinal = String(tempoReal % 60).padStart(2, '0');
+
+  const formatTempo = (t) => {
+    const h = Math.floor(t / 60);
+    const m = t % 60;
+    return `${h}h ${m}min`;
+  };
+
+  let resultadoHtml = `Sua stamina chegará a <b>${staminaAlvoInput}</b> às <b>${horaFinal}:${minFinal}</b>`;
+  if (tempoOrange > 0) resultadoHtml += `<br>Tempo em ORANGE: <b>${formatTempo(tempoOrange)}</b>`;
+  if (tempoGreen > 0) resultadoHtml += `<br>Tempo em GREEN: <b>${formatTempo(tempoGreen)}</b>`;
+
+  document.getElementById('resultado').innerHTML = resultadoHtml;
+
+  // Atualizar barra visual
+  const totalTempo = tempoOrange + tempoGreen;
+  const percOrange = totalTempo ? (tempoOrange / totalTempo) * 100 : 0;
+  const percGreen = totalTempo ? (tempoGreen / totalTempo) * 100 : 0;
+  document.getElementById('barraOrange').style.width = percOrange + '%';
+  document.getElementById('barraGreen').style.width = percGreen + '%';
+}
+</script>
+
+</body>
+</html>
